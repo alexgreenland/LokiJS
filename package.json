@@ -1,6 +1,6 @@
 {
   "name": "@epi/lokijs",
-  "version": "2.0.0-beta.1",
+  "version": "2.0.0-beta.2",
   "description": "Fast document oriented javascript in-memory database",
   "homepage": "http://lokijs.org",
   "main": "src/lokijs.js",
