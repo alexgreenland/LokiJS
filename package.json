@@ -1,5 +1,5 @@
 {
-  "name": "lokijs",
+  "name": "@epi/lokijs",
   "version": "1.5.6",
   "description": "Fast document oriented javascript in-memory database",
   "homepage": "http://lokijs.org",
