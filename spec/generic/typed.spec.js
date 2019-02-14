@@ -1,7 +1,7 @@
 if (typeof(window) === 'undefined') var loki = require('../../src/lokijs.js');
 
 describe('typed', function () {
-  it('works', function () {
+  it('works', async function () {
     var db = new loki('test.json');
     var users;
 
@@ -61,7 +61,7 @@ describe('typed', function () {
     };
 
     // Loading only using proto:
-    db.loadJSON(JSON.stringify(json), {
+    await db.loadJSON(JSON.stringify(json), {
       users: {
         proto: User
       }
@@ -73,7 +73,7 @@ describe('typed', function () {
     expect(users.get(1).name).toBe("joe");
 
     // Loading using proto and inflate:
-    db.loadJSON(JSON.stringify(json), {
+    await db.loadJSON(JSON.stringify(json), {
       users: {
         proto: User,
         inflate: function(src, dest) {
@@ -91,7 +91,7 @@ describe('typed', function () {
     expect(users.get(1).customInflater).toBe(true);
 
     // Loading only using inflate:
-    db.loadJSON(JSON.stringify(json), {
+    await db.loadJSON(JSON.stringify(json), {
       users: {
         inflate: function(src) {
           var dest = {};

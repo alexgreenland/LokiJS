@@ -525,7 +525,7 @@ describe('binary indices', function () {
   });
 
   describe('adaptiveBinaryIndex collection serializes correctly', function() {
-    it('works', function () {
+    it('works', async function () {
 
       var db = new loki('idxtest');
       var coll = db.addCollection('users', { 
@@ -534,10 +534,10 @@ describe('binary indices', function () {
       });
       coll.insert({ customIdx: 1 });
       
-      var jsonString = db.serialize();
+      var jsonString = await db.serialize();
 
       var newDatabase = new loki('idxtest');
-      newDatabase.loadJSON(jsonString);
+      await newDatabase.loadJSON(jsonString);
       
       expect(newDatabase.getCollection('users').adaptiveBinaryIndices).toBe(true);
       
@@ -550,9 +550,9 @@ describe('binary indices', function () {
       });
       coll.insert({ customIdx: 1 });
 
-      jsonString = db.serialize();
+      jsonString = await db.serialize();
       newDatabase = new loki('idxtest');
-      newDatabase.loadJSON(jsonString);
+      await newDatabase.loadJSON(jsonString);
       
       expect(newDatabase.getCollection('users').adaptiveBinaryIndices).toBe(false);
     });

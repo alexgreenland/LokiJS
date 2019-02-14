@@ -42,7 +42,7 @@ describe('autoupdate', function () {
     change1();
   });
 
-  it('auto updates documents loaded from storage', function (done) {
+  it('auto updates documents loaded from storage', async function (done) {
 
     if (typeof Object.observe !== 'function') {
       done();
@@ -63,7 +63,7 @@ describe('autoupdate', function () {
       name: 'Peter'
     }]);
 
-    db2.loadJSON(db1.serialize());
+    await db2.loadJSON(db1.serialize());
 
     coll = db2.getCollection('test');
 

@@ -23,13 +23,13 @@
   "scripts": {
     "lint": "jshint src",
     "test:browser": "karma start karma.conf.js --single-run",
-    "test:node": "istanbul cover --dir coverage/nodejs node_modules/jasmine/bin/jasmine.js",
+    "test:node": "jasmine",
     "pretest": "npm run lint",
     "test": "npm run test:browser && npm run test:node",
-    "build:lokijs": "uglifyjs src/lokijs.js > build/lokijs.min.js",
+    "babel:lokijs": "babel src/lokijs.js --out-dir build",
+    "build:lokijs": "uglifyjs build/lokijs.js > build/lokijs.min.js",
     "build:indexedAdapter": "uglifyjs src/loki-indexed-adapter.js > build/loki-indexed-adapter.min.js",
-    "build": "npm run build:lokijs && npm run build:indexedAdapter",
-    "postbuild": "karma start karma.build.conf.js --single-run",
+    "build": "npm run babel:lokijs && npm run build:lokijs && npm run build:indexedAdapter",
     "prepublish": "npm run build",
     "clean": "rimraf build/* coverage/* node_modules",
     "pour:beer": "echo New npm version published, one beer for you !",
@@ -47,15 +47,21 @@
   "bugs": {
     "url": "https://github.com/techfort/LokiJS/issues"
   },
-  "dependencies": {},
+  "dependencies": {
+    "bfj": "6.1.1"
+  },
   "devDependencies": {
+    "@babel/cli": "7.2.3",
+    "@babel/core": "7.2.2",
+    "@babel/preset-env": "7.3.1",
+    "babel-plugin-istanbul": "5.1.0",
     "istanbul": "^0.4.4",
-    "jasmine": "^2.4.1",
+    "jasmine": "3.3.1",
     "jsdoc": "^3.5.5",
-    "jshint": "^2.9.2",
+    "jshint": "^2.10.1",
     "karma": "^1.1.2",
     "karma-cli": "^1.0.1",
-    "karma-coverage": "^1.1.1",
+    "karma-coverage": "^1.1.2",
     "karma-jasmine": "^1.0.2",
     "karma-phantomjs-launcher": "^1.0.1",
     "mocha": "^2.5.3",

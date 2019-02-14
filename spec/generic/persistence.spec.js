@@ -17,10 +17,10 @@ describe('testing unique index serialization', function () {
     users.ensureUniqueIndex('username');
   });
 
-  it('should have a unique index', function () {
-    var ser = db.serialize(),
+  it('should have a unique index', async function () {
+    var ser = await db.serialize(),
       reloaded = new loki();
-    var loaded = reloaded.loadJSON(ser);
+    var loaded = await reloaded.loadJSON(ser);
     var coll = reloaded.getCollection('users');
     expect(coll.data.length).toEqual(4);
     expect(coll.constraints.unique.username).toBeDefined();
@@ -40,17 +40,17 @@ describe('testing disable meta serialization', function () {
     users = db.addCollection('users', { disableMeta: true });
   });
 
-  it('should have meta disabled', function () {
-    var ser = db.serialize();
+  it('should have meta disabled', async function () {
+    var ser = await db.serialize();
     var reloaded = new loki();
-    var loaded = reloaded.loadJSON(ser);
+    var loaded = await reloaded.loadJSON(ser);
     var coll = reloaded.getCollection('users');
     expect(coll.disableMeta).toEqual(true);
   });
 });
 
 describe('testing destructured serialization/deserialization', function () {
-  it('verify default (D) destructuring works as expected', function()  {
+  it('verify default (D) destructuring works as expected', async function()  {
     var ddb = new loki("test.db", { serializationMethod: "destructured" });
     var coll = ddb.addCollection("testcoll");
     coll.insert({
@@ -72,10 +72,10 @@ describe('testing destructured serialization/deserialization', function () {
       b: 2
     });
 
-    var destructuredJson = ddb.serialize();
+    var destructuredJson = await ddb.serialize();
 
     var cddb = new loki("test.db", { serializationMethod: "destructured" });
-    cddb.loadJSON(destructuredJson);
+    await cddb.loadJSON(destructuredJson);
 
     expect(cddb.options.serializationMethod).toEqual("destructured");
     expect(cddb.collections.length).toEqual(2);
@@ -91,7 +91,7 @@ describe('testing destructured serialization/deserialization', function () {
   // NDA : Non-Delimited Array : one iterable array with empty string collection partitions { partitioned: false, delimited: false }
   // NDAA : Non-Delimited Array with subArrays. db at [0] and collection subarrays at [n] { partitioned: true, delimited : false }
 
-  it('verify custom destructuring works as expected', function() {
+  it('verify custom destructuring works as expected', async function() {
     var methods = ['D', 'DA', 'NDA', 'NDAA'];
     var idx, options, result;
     var cddb, ddb = new loki("test.db");
@@ -125,12 +125,12 @@ describe('testing destructured serialization/deserialization', function () {
       }
 
       // do custom destructuring
-      result = ddb.serializeDestructured(options);
+      result = await ddb.serializeDestructured(options);
 
       // reinflate from custom destructuring
       var cddb = new loki("test.db");
       var reinflatedDatabase = cddb.deserializeDestructured(result, options);
-      cddb.loadJSONObject(reinflatedDatabase);
+      await cddb.loadJSONObject(reinflatedDatabase);
 
       // assert expectations on reinflated database
       expect(cddb.collections.length).toEqual(2);
@@ -143,7 +143,7 @@ describe('testing destructured serialization/deserialization', function () {
     }
   });
 
-  it('verify individual partitioning works correctly', function() {
+  it('verify individual partitioning works correctly', async function() {
     var idx, options, result;
     var cddb, ddb = new loki("test.db");
     var coll = ddb.addCollection("testcoll");
@@ -167,14 +167,14 @@ describe('testing destructured serialization/deserialization', function () {
     });
 
     // Verify db alone works correctly using NDAA format
-    result = ddb.serializeDestructured({
+    result = await ddb.serializeDestructured({
       partitioned: true,
       delimited : false,
       partition: -1 // indicates to get serialized db container only
     });
 
     var cddb = new loki('test');
-    cddb.loadJSON(result);
+    await cddb.loadJSON(result);
 
     expect(cddb.collections.length).toEqual(2);
     expect(cddb.collections[0].data.length).toEqual(0);
@@ -183,7 +183,7 @@ describe('testing destructured serialization/deserialization', function () {
     expect(cddb.collections[1].name).toEqual(ddb.collections[1].name);
 
     // Verify collection alone works correctly using NDAA format
-    result = ddb.serializeDestructured({
+    result = await ddb.serializeDestructured({
       partitioned: true,
       delimited : false,
       partition: 0 // collection [0] only
@@ -202,7 +202,7 @@ describe('testing destructured serialization/deserialization', function () {
     expect(data[2].$loki).toEqual(ddb.collections[0].data[2].$loki);
 
     // Verify collection alone works correctly using DA format (the other partitioned format)
-    result = ddb.serializeDestructured({
+    result = await ddb.serializeDestructured({
       partitioned: true,
       delimited : true,
       partition: 0 // collection [0] only
@@ -394,45 +394,46 @@ describe('testing adapter functionality', function () {
         // now update a multi page items collection and verify all pages were saved
         tyr.maker = "elves";
         items.update(tyr);
-        db.saveDatabase();
-        expect(mem.hashStore["sandbox.db"].savecount).toEqual(3);
-        expect(mem.hashStore["sandbox.db.0.0"].savecount).toEqual(2);
-        expect(mem.hashStore["sandbox.db.0.1"].savecount).toEqual(2);
-        expect(mem.hashStore["sandbox.db.0.2"].savecount).toEqual(2);
-        expect(mem.hashStore["sandbox.db.0.3"].savecount).toEqual(2);
-        expect(mem.hashStore["sandbox.db.1.0"].savecount).toEqual(2);
-
-        // ok now lets load from it
-        var db2 = new loki('sandbox.db', { adapter: adapter});
-        db2.loadDatabase();
-
-        expect(db2.collections.length).toEqual(2);
-        expect(db2.collections[0].data.length).toEqual(4);
-        expect(db2.collections[1].data.length).toEqual(1);
-        expect(db2.getCollection("items").findOne({ name : 'tyrfing'}).maker).toEqual("elves");
-        expect(db2.getCollection("another").findOne({ a: 1}).b).toEqual(3);
-
-        // verify empty collection saves with paging
-        db.addCollection("extracoll");
         db.saveDatabase(function(err) {
-          expect(mem.hashStore["sandbox.db"].savecount).toEqual(4);
+          expect(mem.hashStore["sandbox.db"].savecount).toEqual(3);
           expect(mem.hashStore["sandbox.db.0.0"].savecount).toEqual(2);
           expect(mem.hashStore["sandbox.db.0.1"].savecount).toEqual(2);
           expect(mem.hashStore["sandbox.db.0.2"].savecount).toEqual(2);
           expect(mem.hashStore["sandbox.db.0.3"].savecount).toEqual(2);
           expect(mem.hashStore["sandbox.db.1.0"].savecount).toEqual(2);
-          expect(mem.hashStore["sandbox.db.2.0"].savecount).toEqual(1);
 
-          // now verify loading empty collection works with paging codepath
-          db2 = new loki('sandbox.db', { adapter: adapter});
+          // ok now lets load from it
+          var db2 = new loki('sandbox.db', { adapter: adapter});
           db2.loadDatabase();
 
-          expect(db2.collections.length).toEqual(3);
+          expect(db2.collections.length).toEqual(2);
           expect(db2.collections[0].data.length).toEqual(4);
           expect(db2.collections[1].data.length).toEqual(1);
-          expect(db2.collections[2].data.length).toEqual(0);
+          expect(db2.getCollection("items").findOne({ name : 'tyrfing'}).maker).toEqual("elves");
+          expect(db2.getCollection("another").findOne({ a: 1}).b).toEqual(3);
 
-          done();
+          // verify empty collection saves with paging
+          db.addCollection("extracoll");
+          db.saveDatabase(function(err) {
+            expect(mem.hashStore["sandbox.db"].savecount).toEqual(4);
+            expect(mem.hashStore["sandbox.db.0.0"].savecount).toEqual(2);
+            expect(mem.hashStore["sandbox.db.0.1"].savecount).toEqual(2);
+            expect(mem.hashStore["sandbox.db.0.2"].savecount).toEqual(2);
+            expect(mem.hashStore["sandbox.db.0.3"].savecount).toEqual(2);
+            expect(mem.hashStore["sandbox.db.1.0"].savecount).toEqual(2);
+            expect(mem.hashStore["sandbox.db.2.0"].savecount).toEqual(1);
+
+            // now verify loading empty collection works with paging codepath
+            db2 = new loki('sandbox.db', { adapter: adapter});
+            db2.loadDatabase();
+
+            expect(db2.collections.length).toEqual(3);
+            expect(db2.collections[0].data.length).toEqual(4);
+            expect(db2.collections[1].data.length).toEqual(1);
+            expect(db2.collections[2].data.length).toEqual(0);
+
+            done();
+          });
         });
       });
     });
@@ -815,22 +816,22 @@ describe('testing changesAPI', function() {
     items.update(tyrfing);
 
     // memory adapter is synchronous so i will not bother with callbacks
-    db.saveDatabase(function(err) {
+    db.saveDatabase(async function(err) {
       var db2 = new loki('sandbox.db', { adapter: mem });
-      db2.loadDatabase({});
-
-      var result = JSON.parse(db2.serializeChanges());
-      expect(result.length).toEqual(5);
-
-      expect(result[0].name).toEqual("items");
-      expect(result[0].operation).toEqual("I");
-      expect(result[0].obj.name).toEqual("mjolnir");
-
-      expect(result[4].name).toEqual("items");
-      expect(result[4].operation).toEqual("U");
-      expect(result[4].obj.name).toEqual("tyrfing");
-
-      done();
+      db2.loadDatabase({}, function () {
+        var result = JSON.parse(db2.serializeChanges());
+        expect(result.length).toEqual(5);
+  
+        expect(result[0].name).toEqual("items");
+        expect(result[0].operation).toEqual("I");
+        expect(result[0].obj.name).toEqual("mjolnir");
+  
+        expect(result[4].name).toEqual("items");
+        expect(result[4].operation).toEqual("U");
+        expect(result[4].obj.name).toEqual("tyrfing");
+  
+        done();
+      });
     });
   });
 });

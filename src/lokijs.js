@@ -1237,13 +1237,37 @@
       }
     };
 
+    async function stringifyJson (data, replacer, space) {
+        try {
+          var bfj = require('bfj');
+
+          const dataToStringify = Object.entries(data).reduce(function(dataBuilding, [key, value]) {
+            const newValue = replacer(key, value)
+
+            if (newValue) {
+              dataBuilding[key] = newValue
+            }
+
+            return dataBuilding
+          }, {})
+          
+          const json = await bfj.stringify(dataToStringify, {
+            space
+          })
+          
+          return json
+        } catch (e) {
+          return JSON.stringify(data, replacer, space);
+        }
+    }
+
     /**
      * Serialize database to a string which can be loaded via {@link Loki#loadJSON}
      *
      * @returns {string} Stringified representation of the loki database.
      * @memberof Loki
      */
-    Loki.prototype.serialize = function (options) {
+    Loki.prototype.serialize = async function (options) {
       options = options || {};
 
       if (!options.hasOwnProperty("serializationMethod")) {
@@ -1251,10 +1275,10 @@
       }
 
       switch(options.serializationMethod) {
-        case "normal": return JSON.stringify(this, this.serializeReplacer);
-        case "pretty": return JSON.stringify(this, this.serializeReplacer, 2);
-        case "destructured": return this.serializeDestructured(); // use default options
-        default: return JSON.stringify(this, this.serializeReplacer);
+        case "normal": return await stringifyJson(this, this.serializeReplacer);
+        case "pretty": return await stringifyJson(this, this.serializeReplacer, 2);
+        case "destructured": return await this.serializeDestructured(); // use default options
+        default: return await stringifyJson(this, this.serializeReplacer);
       }
     };
 
@@ -1276,7 +1300,7 @@
      * @returns {string|array} A custom, restructured aggregation of independent serializations.
      * @memberof Loki
      */
-    Loki.prototype.serializeDestructured = function(options) {
+    Loki.prototype.serializeDestructured = async function(options) {
       var idx, sidx, result, resultlen;
       var reconstruct = [];
       var dbcopy;
@@ -1315,14 +1339,14 @@
       // if we -only- wanted the db container portion, return it now
       if (options.partitioned === true && options.partition === -1) {
         // since we are deconstructing, override serializationMethod to normal for here
-        return dbcopy.serialize({
+        return await dbcopy.serialize({
           serializationMethod: "normal"
         });
       }
 
       // at this point we must be deconstructing the entire database
       // start by pushing db serialization into first array element
-      reconstruct.push(dbcopy.serialize({
+      reconstruct.push(await dbcopy.serialize({
           serializationMethod: "normal"
       }));
 
@@ -1601,6 +1625,19 @@
       return workarray;
     };
 
+    async function parseJson (json) {
+        try {
+          var bfj = require('bfj');
+          var Readable = require('stream').Readable
+          var stream = new Readable()
+          stream.push(json)
+          stream.push(null)
+          return await bfj.parse(stream)
+        } catch (e) {
+          return JSON.parse(json);
+        }
+    }
+
     /**
      * Inflates a loki database from a serialized JSON string
      *
@@ -1609,7 +1646,7 @@
      * @param {bool} options.retainDirtyFlags - whether collection dirty flags will be preserved
      * @memberof Loki
      */
-    Loki.prototype.loadJSON = function (serializedDb, options) {
+    Loki.prototype.loadJSON = async function (serializedDb, options) {
       var dbObject;
       if (serializedDb.length === 0) {
         dbObject = {};
@@ -1617,11 +1654,13 @@
         // using option defined in instantiated db not what was in serialized db
         switch (this.options.serializationMethod) {
           case "normal":
-          case "pretty": dbObject = JSON.parse(serializedDb); break;
+          case "pretty": dbObject = await parseJson(serializedDb); break;
           case "destructured": dbObject = this.deserializeDestructured(serializedDb); break;
-          default:  dbObject = JSON.parse(serializedDb); break;
+          default: dbObject = await parseJson(serializedDb); break;
         }
       }
+
+      // console.log('dbObject', dbObject)
 
       this.loadJSONObject(dbObject, options);
     };
@@ -2182,7 +2221,7 @@
      *
      * @param {function} callback - adapter callback to return load result to caller
      */
-    LokiPartitioningAdapter.prototype.saveNextPartition = function(callback) {
+    LokiPartitioningAdapter.prototype.saveNextPartition = async function(callback) {
       var self=this;
       var partition = this.dirtyPartitions.shift();
       var keyname = this.dbname + ((partition===-1)?"":("." + partition));
@@ -2208,7 +2247,7 @@
       }
 
       // otherwise this is 'non-paged' partioning...
-      var result = this.dbref.serializeDestructured({
+      var result = await this.dbref.serializeDestructured({
         partitioned : true,
         delimited: true,
         partition: partition
@@ -2508,11 +2547,11 @@
       // the persistenceAdapter should be present if all is ok, but check to be sure.
       if (this.persistenceAdapter !== null) {
 
-        this.persistenceAdapter.loadDatabase(this.filename, function loadDatabaseCallback(dbString) {
+        this.persistenceAdapter.loadDatabase(this.filename, async function loadDatabaseCallback(dbString) {
           if (typeof (dbString) === 'string') {
             var parseSuccess = false;
             try {
-              self.loadJSON(dbString, options || {});
+              await self.loadJSON(dbString, options || {});
               parseSuccess = true;
             } catch (err) {
               cFun(err);
@@ -2618,7 +2657,7 @@
     /**
      * Internal save logic, decoupled from save throttling logic
      */
-    Loki.prototype.saveDatabaseInternal = function (callback) {
+    Loki.prototype.saveDatabaseInternal = async function (callback) {
       var cFun = callback || function (err) {
           if (err) {
             throw err;
@@ -2642,7 +2681,7 @@
           // persistenceAdapter might be asynchronous, so we must clear `dirty` immediately
           // or autosave won't work if an update occurs between here and the callback
           self.autosaveClearFlags();
-          this.persistenceAdapter.saveDatabase(this.filename, self.serialize(), function saveDatabasecallback(err) {
+          this.persistenceAdapter.saveDatabase(this.filename, await self.serialize(), function saveDatabasecallback(err) {
             cFun(err);
           });
         }
